@@ -30,24 +30,63 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (!dbUser) return;
       try {
         setLoadingStats(true);
         const token = await getToken();
         
-        // In Part 4, we will fetch aggregates from the actual analytics endpoint.
-        // For Part 1, we will mock or provide initial data, while maintaining clean design.
-        const mockStats = {
-          totalVolunteers: 18,
-          totalCampaigns: 4,
-          totalTasks: 25,
-          totalHours: 128,
-          myHours: 12,
-          myCompletedTasks: 3,
-          myCampaigns: 2,
-          myCertificates: 1
+        let loadedStats = {
+          totalVolunteers: 0,
+          totalCampaigns: 0,
+          totalTasks: 0,
+          totalHours: 0,
+          myHours: 0,
+          myCompletedTasks: 0,
+          myCampaigns: 0,
+          myCertificates: 0
         };
+
+        if (['admin', 'coordinator'].includes(dbUser.role)) {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/analytics/dashboard`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const result = await res.json();
+          if (res.ok && result.success) {
+            const data = result.data;
+            loadedStats.totalVolunteers = data.totalVolunteers;
+            loadedStats.totalCampaigns = data.activeCampaigns + data.pendingCampaigns + data.completedCampaigns;
+            loadedStats.totalTasks = data.totalTasks;
+            loadedStats.totalHours = data.totalHours;
+          }
+        } else {
+          // Volunteer: query tasks list to calculate hours & completed tasks
+          const taskRes = await fetch(`${import.meta.env.VITE_API_URL}/tasks`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const taskResult = await taskRes.json();
+          
+          // Query certificates to count them
+          const certRes = await fetch(`${import.meta.env.VITE_API_URL}/certificates/my`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const certResult = await certRes.json();
+
+          if (taskRes.ok && taskResult.success) {
+            const vTasks = taskResult.data;
+            loadedStats.myCompletedTasks = vTasks.filter(t => t.status === 'completed' || t.status === 'verified').length;
+            loadedStats.myHours = vTasks.filter(t => t.status === 'verified').reduce((sum, t) => sum + (t.loggedHours || 0), 0);
+            
+            // Get unique campaigns they have tasks in
+            const uniqueCampIds = new Set(vTasks.map(t => t.campaignId?._id).filter(Boolean));
+            loadedStats.myCampaigns = uniqueCampIds.size;
+          }
+
+          if (certRes.ok && certResult.success) {
+            loadedStats.myCertificates = certResult.data.length;
+          }
+        }
         
-        setStats(mockStats);
+        setStats(loadedStats);
       } catch (err) {
         console.error('Error fetching statistics:', err);
       } finally {

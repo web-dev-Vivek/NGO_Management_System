@@ -1,14 +1,650 @@
-import React from 'react';
-import { CalendarDays } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useDbUser } from '../../context/UserContext';
+import { useAuth } from '@clerk/clerk-react';
+import { 
+  Search, 
+  Plus, 
+  Calendar, 
+  MapPin, 
+  Users, 
+  Check, 
+  PlusCircle, 
+  Tag, 
+  Upload, 
+  X, 
+  Sparkles,
+  Info 
+} from 'lucide-react';
 
 const CampaignExplorer = () => {
+  const { dbUser } = useDbUser();
+  const { getToken } = useAuth();
+  
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(null);
+  
+  // Create Campaign Form State
+  const [newCampaign, setNewCampaign] = useState({
+    title: '',
+    description: '',
+    category: 'Other',
+    bannerImage: '',
+    startDate: '',
+    endDate: '',
+    locationAddress: '',
+    targetVolunteers: 10
+  });
+  
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  const categories = ["Education", "Health", "Environment", "Disaster Relief", "Community Service", "Other"];
+
+  const fetchCampaigns = async () => {
+    try {
+      setLoading(true);
+      const queryParams = new URLSearchParams();
+      if (search) queryParams.append('search', search);
+      if (categoryFilter) queryParams.append('category', categoryFilter);
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns?${queryParams.toString()}`);
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setCampaigns(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching campaigns:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [search, categoryFilter]);
+
+  const handleRegister = async (campaignId) => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns/${campaignId}/register`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setMessage({ type: 'success', text: 'You have joined this campaign successfully!' });
+        fetchCampaigns();
+        if (showDetailModal && showDetailModal._id === campaignId) {
+          setShowDetailModal(result.data);
+        }
+      } else {
+        setMessage({ type: 'error', text: result.message || 'Failed to register' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Error joining campaign' });
+    }
+  };
+
+  const handleBannerUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('banner', file);
+
+    try {
+      const token = await getToken();
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns/banner`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setNewCampaign(prev => ({ ...prev, bannerImage: result.file.path }));
+      } else {
+        alert(result.message || 'Banner upload failed');
+      }
+    } catch (err) {
+      alert('Error uploading banner');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const token = await getToken();
+      const bodyPayload = {
+        ...newCampaign,
+        location: {
+          address: newCampaign.locationAddress
+        }
+      };
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(bodyPayload)
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setMessage({ type: 'success', text: 'Campaign submitted successfully!' });
+        setShowCreateModal(false);
+        // Clear form
+        setNewCampaign({
+          title: '',
+          description: '',
+          category: 'Other',
+          bannerImage: '',
+          startDate: '',
+          endDate: '',
+          locationAddress: '',
+          targetVolunteers: 10
+        });
+        fetchCampaigns();
+      } else {
+        alert(result.message || 'Failed to create campaign');
+      }
+    } catch (err) {
+      alert('Error creating campaign');
+    }
+  };
+
+  const handleApproveCampaign = async (campaignId, approveStatus) => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns/${campaignId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: approveStatus })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setMessage({ type: 'success', text: `Campaign status updated to ${approveStatus}` });
+        fetchCampaigns();
+        setShowDetailModal(null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (!dbUser) return null;
+  const isPrivileged = ['admin', 'coordinator'].includes(dbUser.role);
+
   return (
-    <div className="glass-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
-      <CalendarDays size={48} style={{ color: 'var(--color-accent-blue)', marginBottom: '16px' }} />
-      <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Campaign Explorer</h2>
-      <p style={{ color: 'var(--color-text-secondary)', maxWidth: '500px', margin: '0 auto' }}>
-        This module will manage active NGO campaigns, category feeds, and registrations. It will be fully implemented in **Part 2** of the development plan.
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+      {/* Header Panel */}
+      <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px' }}>NGO Campaigns</h2>
+          <p style={{ color: 'var(--color-text-secondary)' }}>Explore and register for upcoming volunteer drives or organize new events.</p>
+        </div>
+        {isPrivileged && (
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <Plus size={16} /> Create Campaign
+          </button>
+        )}
+      </div>
+
+      {/* Message alert */}
+      {message.text && (
+        <div style={{
+          padding: '12px 16px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          background: message.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          color: message.type === 'success' ? 'var(--color-accent-emerald)' : 'var(--color-accent-rose)',
+          border: message.type === 'success' ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid rgba(239, 68, 68, 0.15)'
+        }}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Filters Toolbar */}
+      <div className="glass-card" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '8px 16px', borderRadius: '8px', flexGrow: 1 }}>
+          <Search size={18} style={{ color: 'var(--color-text-secondary)' }} />
+          <input 
+            type="text" 
+            placeholder="Search campaigns by keyword or address..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ background: 'none', border: 'none', color: '#fff', outline: 'none', width: '100%', fontSize: '14px' }}
+          />
+        </div>
+
+        <select 
+          value={categoryFilter} 
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--glass-border)',
+            padding: '10px 16px',
+            borderRadius: '8px',
+            color: '#fff',
+            outline: 'none',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="" style={{ background: '#0b0f19' }}>All Categories</option>
+          {categories.map(cat => (
+            <option key={cat} value={cat} style={{ background: '#0b0f19' }}>{cat}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Campaigns Listing */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-secondary)' }}>Loading campaigns...</div>
+      ) : campaigns.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-secondary)' }}>No campaigns match your search request.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+          {campaigns.map((camp) => {
+            const hasJoined = camp.volunteersRegistered.includes(dbUser._id);
+            const spacesTaken = camp.volunteersRegistered.length;
+            const progressPercent = Math.min(Math.round((spacesTaken / camp.targetVolunteers) * 100), 100);
+
+            return (
+              <div key={camp._id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', padding: '0px', overflow: 'hidden' }}>
+                {/* Banner Image */}
+                <div style={{ height: '160px', width: '100%', background: 'rgba(255,255,255,0.02)', position: 'relative', overflow: 'hidden' }}>
+                  {camp.bannerImage ? (
+                    <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${camp.bannerImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', background: 'var(--gradient-primary)', opacity: 0.15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Calendar size={48} style={{ opacity: 0.3 }} />
+                    </div>
+                  )}
+                  <span style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '12px',
+                    background: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(4px)',
+                    color: 'var(--color-text-primary)',
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>
+                    {camp.category}
+                  </span>
+                  
+                  {isPrivileged && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      background: camp.status === 'active' ? 'rgba(16, 185, 129, 0.8)' : 'rgba(245, 158, 11, 0.8)',
+                      backdropFilter: 'blur(4px)',
+                      color: '#fff',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase'
+                    }}>
+                      {camp.status}
+                    </span>
+                  )}
+                </div>
+
+                {/* Card Content */}
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', flexGrow: 1, gap: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: '700', lineHeight: '1.3' }}>{camp.title}</h3>
+                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginTop: '6px', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {camp.description}
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Calendar size={14} />
+                      <span>{new Date(camp.startDate).toLocaleDateString()} - {new Date(camp.endDate).toLocaleDateString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <MapPin size={14} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{camp.location.address}</span>
+                    </div>
+                  </div>
+
+                  {/* Registered capacity progress */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                      <span>Capacity Progress</span>
+                      <span style={{ fontWeight: '600' }}>{spacesTaken} / {camp.targetVolunteers} joined</span>
+                    </div>
+                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${progressPercent}%`, height: '100%', background: 'var(--color-accent-emerald)', borderRadius: '3px' }} />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ marginTop: 'auto', display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-secondary" style={{ flexGrow: 1, padding: '8px 16px' }} onClick={() => setShowDetailModal(camp)}>
+                      <Info size={14} /> Details
+                    </button>
+                    {dbUser.role === 'volunteer' && camp.status === 'active' && (
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ flexGrow: 1, padding: '8px 16px' }}
+                        onClick={() => handleRegister(camp._id)}
+                        disabled={hasJoined || spacesTaken >= camp.targetVolunteers}
+                      >
+                        {hasJoined ? (
+                          <>
+                            <Check size={14} /> Joined
+                          </>
+                        ) : spacesTaken >= camp.targetVolunteers ? 'Full' : 'Join'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 📋 Create Campaign Modal Form (Coordinator/Admin only) */}
+      {showCreateModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 200
+        }}>
+          <div className="glass-card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '20px', fontWeight: '700' }}>Organize Campaign</h3>
+              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Campaign Title</label>
+                <input 
+                  type="text" 
+                  value={newCampaign.title}
+                  onChange={(e) => setNewCampaign({...newCampaign, title: e.target.value})}
+                  placeholder="E.g. Clean the Beach 2026"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Description</label>
+                <textarea 
+                  value={newCampaign.description}
+                  onChange={(e) => setNewCampaign({...newCampaign, description: e.target.value})}
+                  placeholder="Describe goals, tasks, and volunteer expectations..."
+                  rows="3"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Category</label>
+                  <select 
+                    value={newCampaign.category}
+                    onChange={(e) => setNewCampaign({...newCampaign, category: e.target.value})}
+                    style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  >
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Capacity (Volunteers)</label>
+                  <input 
+                    type="number" 
+                    value={newCampaign.targetVolunteers}
+                    onChange={(e) => setNewCampaign({...newCampaign, targetVolunteers: parseInt(e.target.value) || 1})}
+                    min="1"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Banner Upload */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Banner Image</label>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <label className="btn btn-secondary" style={{ cursor: 'pointer', display: 'flex', gap: '8px', fontSize: '13px' }}>
+                    <Upload size={16} /> {uploading ? 'Uploading...' : 'Upload Image'}
+                    <input type="file" accept="image/*" onChange={handleBannerUpload} style={{ display: 'none' }} />
+                  </label>
+                  {newCampaign.bannerImage && (
+                    <span style={{ fontSize: '12px', color: 'var(--color-accent-emerald)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      Banner attached successfully
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Start Date</label>
+                  <input 
+                    type="date" 
+                    value={newCampaign.startDate}
+                    onChange={(e) => setNewCampaign({...newCampaign, startDate: e.target.value})}
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>End Date</label>
+                  <input 
+                    type="date" 
+                    value={newCampaign.endDate}
+                    onChange={(e) => setNewCampaign({...newCampaign, endDate: e.target.value})}
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>Location Address</label>
+                <input 
+                  type="text" 
+                  value={newCampaign.locationAddress}
+                  onChange={(e) => setNewCampaign({...newCampaign, locationAddress: e.target.value})}
+                  placeholder="123 Community St, City, Country"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flexGrow: 1 }}>Submit Campaign</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🔎 Detail View Modal */}
+      {showDetailModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 200
+        }}>
+          <div className="glass-card" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '0px' }}>
+            {/* Header Banner */}
+            <div style={{ height: '200px', width: '100%', relative: 'position', background: 'rgba(255,255,255,0.02)' }}>
+              {showDetailModal.bannerImage ? (
+                <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${showDetailModal.bannerImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', background: 'var(--gradient-primary)', opacity: 0.15 }} />
+              )}
+              <button 
+                onClick={() => setShowDetailModal(null)} 
+                style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', cursor: 'pointer', padding: '8px', borderRadius: '50%' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content info */}
+            <div style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <span style={{
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  color: 'var(--color-accent-blue)',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  fontWeight: '600'
+                }}>
+                  {showDetailModal.category}
+                </span>
+                <h3 style={{ fontSize: '24px', fontWeight: '700', marginTop: '10px' }}>{showDetailModal.title}</h3>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '10px', lineHeight: '1.6' }}>
+                  {showDetailModal.description}
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '13px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Campaign Schedule</span>
+                  <strong style={{ color: '#fff' }}>
+                    {new Date(showDetailModal.startDate).toLocaleDateString()} - {new Date(showDetailModal.endDate).toLocaleDateString()}
+                  </strong>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Location Address</span>
+                  <strong style={{ color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {showDetailModal.location.address}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Organizer details */}
+              {showDetailModal.createdBy && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Organized by:</span>
+                  <strong>{showDetailModal.createdBy.firstName} {showDetailModal.createdBy.lastName}</strong>
+                </div>
+              )}
+
+              {/* Admin Approval Control Panel */}
+              {dbUser.role === 'admin' && showDetailModal.status === 'pending' && (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  background: 'rgba(245, 158, 11, 0.05)',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(245, 158, 11, 0.15)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-accent-amber)' }}>
+                    <Info size={16} />
+                    <span style={{ fontSize: '12px', fontWeight: '600' }}>Admin Review Action Required</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-primary" style={{ padding: '6px 16px', fontSize: '13px' }} onClick={() => handleApproveCampaign(showDetailModal._id, 'active')}>
+                      Approve & Publish
+                    </button>
+                    <button className="btn btn-secondary" style={{ padding: '6px 16px', fontSize: '13px', color: 'var(--color-accent-rose)' }} onClick={() => handleApproveCampaign(showDetailModal._id, 'rejected')}>
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Registered Volunteers Roster list for Coordinators/Admins */}
+              {isPrivileged && (
+                <div>
+                  <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={16} />
+                    Registered Volunteers ({showDetailModal.volunteersRegistered?.length || 0})
+                  </h4>
+                  {showDetailModal.volunteersRegistered?.length === 0 ? (
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No volunteers have registered for this campaign yet.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px' }}>
+                      {showDetailModal.volunteersRegistered?.map((v) => (
+                        <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                          {v.profileImage ? (
+                            <img src={v.profileImage} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                          ) : (
+                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
+                              {v.firstName?.[0]}
+                            </div>
+                          )}
+                          <span>{v.firstName} {v.lastName} ({v.email})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                {dbUser.role === 'volunteer' && showDetailModal.status === 'active' && (
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ flexGrow: 1 }}
+                    onClick={() => handleRegister(showDetailModal._id)}
+                    disabled={showDetailModal.volunteersRegistered?.some(v => v._id === dbUser._id)}
+                  >
+                    {showDetailModal.volunteersRegistered?.some(v => v._id === dbUser._id) ? 'Already Joined' : 'Register to Join'}
+                  </button>
+                )}
+                <button className="btn btn-secondary" style={{ flexGrow: 1 }} onClick={() => setShowDetailModal(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

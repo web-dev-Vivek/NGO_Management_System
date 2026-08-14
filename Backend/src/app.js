@@ -7,6 +7,10 @@ import errorHandler from './middleware/errorHandler.js';
 
 // Route files
 import userRoutes from './modules/users/users.routes.js';
+import campaignRoutes from './modules/campaigns/campaigns.routes.js';
+import taskRoutes from './modules/tasks/tasks.routes.js';
+import certificateRoutes from './modules/certificates/certificates.routes.js';
+import analyticsRoutes from './modules/analytics/analytics.routes.js';
 
 // Recreate __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +36,10 @@ app.use(clerkMiddleware());
 
 // Mount routers
 app.use('/api/users', userRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/certificates', certificateRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Base route
 app.get('/', (req, res) => {
