@@ -26,24 +26,40 @@ export const protect = async (req, res, next) => {
                     ? clerkUser.emailAddresses[0].emailAddress
                     : '';
 
-                // Create the user record in Mongoose
-                user = await User.create({
-                    clerkUserId,
-                    firstName: clerkUser.firstName || '',
-                    lastName: clerkUser.lastName || '',
-                    email,
-                    profileImage: clerkUser.imageUrl || '',
-                    role: 'volunteer', // Default role
-                    status: 'pending',  // Must be approved by Admin
-                    verificationStatus: 'pending'
-                });
-                
-                console.log(`Auto-created local user database profile for Clerk ID: ${clerkUserId}`);
+                const isAdmin = email && process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+
+                // Check if a user with this email already exists in local database
+                let existingUser = await User.findOne({ email });
+                if (existingUser) {
+                    existingUser.clerkUserId = clerkUserId;
+                    if (!existingUser.profileImage) {
+                        existingUser.profileImage = clerkUser.imageUrl || '';
+                    }
+                    if (isAdmin) {
+                        existingUser.role = 'admin';
+                        existingUser.status = 'active';
+                    }
+                    user = await existingUser.save();
+                    console.log(`Linked existing user email ${email} to Clerk ID: ${clerkUserId}`);
+                } else {
+                    // Create the user record in Mongoose
+                    user = await User.create({
+                        clerkUserId,
+                        firstName: clerkUser.firstName || '',
+                        lastName: clerkUser.lastName || '',
+                        email,
+                        profileImage: clerkUser.imageUrl || '',
+                        role: isAdmin ? 'admin' : 'volunteer',
+                        status: isAdmin ? 'active' : 'pending',
+                        verificationStatus: 'pending'
+                    });
+                    console.log(`Auto-created local user database profile for Clerk ID: ${clerkUserId}`);
+                }
             } catch (clerkError) {
                 console.error(`Clerk fetch failed: ${clerkError.message}`);
                 return res.status(500).json({
                     success: false,
-                    message: 'Error synchronizing user session with authentication provider'
+                    message: `Error synchronizing user session: ${clerkError.message}`
                 });
             }
         }

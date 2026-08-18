@@ -100,9 +100,16 @@ export const updateUserRole = async (req, res, next) => {
             });
         }
 
+        let updateData = { role };
+        if (role === 'coordinator') {
+            updateData.coordinatorRequested = false;
+            updateData.status = 'active';
+            updateData.verificationStatus = 'verified';
+        }
+
         const user = await User.findOneAndUpdate(
             { clerkUserId: req.params.clerkUserId },
-            { $set: { role } },
+            { $set: updateData },
             { new: true, runValidators: true }
         );
 
@@ -137,6 +144,23 @@ export const updateUserStatus = async (req, res, next) => {
             });
         }
 
+        const userToUpdate = await User.findOne({ clerkUserId: req.params.clerkUserId });
+
+        if (!userToUpdate) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Coordinators can only approve volunteer accounts
+        if (req.user.role === 'coordinator' && userToUpdate.role !== 'volunteer') {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized: Coordinators can only update volunteer account statuses'
+            });
+        }
+
         let updateFields = { status };
         
         // If approved/active, auto-verify user
@@ -152,13 +176,6 @@ export const updateUserStatus = async (req, res, next) => {
             { new: true, runValidators: true }
         );
 
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
         res.status(200).json({
             success: true,
             message: `User account status updated successfully to ${status}`,
@@ -168,3 +185,46 @@ export const updateUserStatus = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Request to become Coordinator
+// @route   PUT /api/users/request-coordinator
+// @access  Private (Volunteer only)
+export const requestCoordinator = async (req, res, next) => {
+    try {
+        if (req.user.role !== 'volunteer') {
+            return res.status(400).json({
+                success: false,
+                message: 'Only volunteers can request to become a coordinator'
+            });
+        }
+
+        req.user.coordinatorRequested = true;
+        await req.user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Request to become a coordinator submitted successfully. Awaiting Admin approval.',
+            data: req.user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get all pending Coordinator promotion requests
+// @route   GET /api/users/coordinator-requests
+// @access  Private (Admin only)
+export const getCoordinatorRequests = async (req, res, next) => {
+    try {
+        const users = await User.find({ coordinatorRequested: true }).sort({ updatedAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: users.length,
+            data: users
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+

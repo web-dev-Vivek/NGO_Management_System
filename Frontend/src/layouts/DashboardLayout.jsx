@@ -147,9 +147,8 @@ const DashboardLayout = ({ children }) => {
       {/* Sidebar Navigation */}
       <aside className={`dashboard-sidebar ${sidebarOpen ? 'open' : ''}`} style={{
         width: '260px',
-        background: 'var(--glass-bg)',
-        borderRight: '1px solid var(--glass-border)',
-        backdropFilter: 'var(--backdrop-blur)',
+        background: 'var(--color-bg-surface)',
+        borderRight: '1px solid #e2e8f0',
         display: 'flex',
         flexDirection: 'column',
         padding: '24px',
@@ -158,7 +157,7 @@ const DashboardLayout = ({ children }) => {
       }}>
         {/* Brand Logo */}
         <div style={{ marginBottom: '40px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.02em', background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.02em', color: 'var(--color-accent-blue)' }}>
             Unity NGO
           </h1>
           <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginTop: '4px' }}>
@@ -174,13 +173,14 @@ const DashboardLayout = ({ children }) => {
             gap: '12px',
             padding: '12px',
             borderRadius: '12px',
-            background: 'rgba(255,255,255,0.03)',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
             marginBottom: '30px'
           }}>
             {dbUser.profileImage ? (
               <img src={dbUser.profileImage} alt="User avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
             ) : (
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--gradient-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
                 {dbUser.firstName?.[0]}
               </div>
             )}
@@ -188,7 +188,7 @@ const DashboardLayout = ({ children }) => {
               <h3 style={{ fontSize: '14px', fontWeight: '600' }}>{dbUser.firstName}</h3>
               <span style={{ 
                 fontSize: '11px', 
-                color: dbUser.role === 'admin' ? 'var(--color-accent-purple)' : dbUser.role === 'coordinator' ? 'var(--color-accent-blue)' : 'var(--color-accent-emerald)',
+                color: dbUser.role === 'admin' ? 'var(--color-accent-blue)' : dbUser.role === 'coordinator' ? 'var(--color-accent-blue)' : 'var(--color-accent-green)',
                 textTransform: 'uppercase',
                 fontWeight: '600',
                 letterSpacing: '0.05em'
@@ -215,12 +215,12 @@ const DashboardLayout = ({ children }) => {
                   gap: '12px',
                   padding: '12px 16px',
                   borderRadius: '10px',
-                  color: isActive ? '#fff' : 'var(--color-text-secondary)',
+                  color: isActive ? 'var(--color-accent-blue)' : 'var(--color-text-secondary)',
                   textDecoration: 'none',
                   fontSize: '14px',
-                  fontWeight: '500',
-                  background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
-                  border: isActive ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+                  fontWeight: '600',
+                  background: isActive ? '#f0f9ff' : 'transparent',
+                  border: isActive ? '1px solid #bae6fd' : '1px solid transparent',
                   transition: 'var(--transition-smooth)'
                 }}
                 className="sidebar-link"
@@ -247,7 +247,7 @@ const DashboardLayout = ({ children }) => {
             color: 'var(--color-text-secondary)',
             cursor: 'pointer',
             fontSize: '14px',
-            fontWeight: '500',
+            fontWeight: '600',
             textAlign: 'left',
             marginTop: 'auto'
           }}

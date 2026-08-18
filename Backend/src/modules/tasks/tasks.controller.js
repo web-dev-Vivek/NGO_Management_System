@@ -26,6 +26,14 @@ export const createTask = async (req, res, next) => {
             });
         }
 
+        // Authorization check: Coordinators can only create tasks for campaigns they coordinate/created
+        if (req.user.role === 'coordinator' && campaign.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized: You can only assign tasks to campaigns you coordinate'
+            });
+        }
+
         // Verify volunteer exists
         const volunteer = await User.findById(assignedVolunteer);
         if (!volunteer) {
@@ -62,9 +70,11 @@ export const getTasks = async (req, res, next) => {
         const { campaignId, status, assignedVolunteer } = req.query;
         let query = {};
 
-        // Restrict query for volunteers to only their own tasks
+        // Restrict query for volunteers to only their own tasks, unless viewing a specific campaign
         if (req.user.role === 'volunteer') {
-            query.assignedVolunteer = req.user._id;
+            if (!campaignId) {
+                query.assignedVolunteer = req.user._id;
+            }
         } else if (assignedVolunteer) {
             // Coordinator/Admin can filter by volunteer
             query.assignedVolunteer = assignedVolunteer;
@@ -264,6 +274,101 @@ export const verifyTaskHours = async (req, res, next) => {
             success: true,
             message: `Task hours verification completed as ${status}`,
             data: task
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Update Task details (title, description, priority, assignedVolunteer, dueDate)
+// @route   PUT /api/tasks/:id
+// @access  Private (Coordinator/Admin only)
+export const updateTask = async (req, res, next) => {
+    try {
+        let task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Task not found'
+            });
+        }
+
+        // Authorization check: Coordinators can only edit tasks for campaigns they coordinate/created
+        if (req.user.role === 'coordinator') {
+            const campaign = await Campaign.findById(task.campaignId);
+            if (campaign && campaign.createdBy.toString() !== req.user._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Not authorized: You can only edit tasks for campaigns you coordinate'
+                });
+            }
+        }
+
+        const { title, description, priority, assignedVolunteer, dueDate, status } = req.body;
+
+        if (assignedVolunteer) {
+            const volunteer = await User.findById(assignedVolunteer);
+            if (!volunteer) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Assigned volunteer not found'
+                });
+            }
+            task.assignedVolunteer = assignedVolunteer;
+        }
+
+        if (title !== undefined) task.title = title;
+        if (description !== undefined) task.description = description;
+        if (priority !== undefined) task.priority = priority;
+        if (dueDate !== undefined) task.dueDate = dueDate;
+        if (status !== undefined) task.status = status;
+
+        await task.save();
+
+        // Populate assigned volunteer
+        task = await Task.findById(task._id).populate('assignedVolunteer', 'firstName lastName email profileImage');
+
+        res.status(200).json({
+            success: true,
+            message: 'Task updated successfully',
+            data: task
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Delete Task
+// @route   DELETE /api/tasks/:id
+// @access  Private (Coordinator/Admin only)
+export const deleteTask = async (req, res, next) => {
+    try {
+        const task = await Task.findById(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Task not found'
+            });
+        }
+
+        // Authorization check: Coordinators can only delete tasks for campaigns they coordinate/created
+        if (req.user.role === 'coordinator') {
+            const campaign = await Campaign.findById(task.campaignId);
+            if (campaign && campaign.createdBy.toString() !== req.user._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Not authorized: You can only delete tasks for campaigns you coordinate'
+                });
+            }
+        }
+
+        await Task.findByIdAndDelete(req.params.id);
+
+        res.status(200).json({
+            success: true,
+            message: 'Task deleted successfully'
         });
     } catch (error) {
         next(error);

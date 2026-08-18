@@ -8,6 +8,7 @@ import {
     getCampaignById,
     updateCampaign,
     registerForCampaign,
+    approveVolunteerRegistration,
     uploadBannerController
 } from './campaigns.controller.js';
 
@@ -27,6 +28,9 @@ router.put('/:id', protect, authorize('coordinator', 'admin'), updateCampaign);
 
 // POST /api/campaigns/:id/register -> Register to join a campaign (Volunteers only)
 router.post('/:id/register', protect, authorize('volunteer'), registerForCampaign);
+
+// POST /api/campaigns/:id/approve-volunteer -> Approve/Reject enrollment (Coordinators and Admins only)
+router.post('/:id/approve-volunteer', protect, authorize('coordinator', 'admin'), approveVolunteerRegistration);
 
 // POST /api/campaigns/banner -> Upload banner image file (Coordinators and Admins only)
 router.post('/banner', protect, authorize('coordinator', 'admin'), uploadCampaignBanner, uploadBannerController);

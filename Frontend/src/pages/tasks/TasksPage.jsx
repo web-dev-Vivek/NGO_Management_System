@@ -425,7 +425,9 @@ const TasksPage = () => {
                 >
                   <option value="">-- Choose Registered Volunteer --</option>
                   {selectedCampaignVolunteers.map(v => (
-                    <option key={v._id} value={v._id}>{v.firstName} {v.lastName}</option>
+                    <option key={v._id} value={v._id}>
+                      {v.firstName || v.lastName ? `${v.firstName} ${v.lastName} (${v.email})` : v.email}
+                    </option>
                   ))}
                 </select>
                 {!newTask.campaignId && (

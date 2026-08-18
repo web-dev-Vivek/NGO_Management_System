@@ -6,7 +6,9 @@ import {
     getTasks,
     updateTaskStatus,
     logTaskHours,
-    verifyTaskHours
+    verifyTaskHours,
+    updateTask,
+    deleteTask
 } from './tasks.controller.js';
 
 const router = express.Router();
@@ -22,6 +24,12 @@ router.route('/')
 
 // PUT /api/tasks/:id/status -> Update state (Volunteer set to active/complete, Coordinator verify)
 router.put('/:id/status', updateTaskStatus);
+
+// PUT /api/tasks/:id -> Update task details (Coordinator and Admin only)
+// DELETE /api/tasks/:id -> Delete task (Coordinator and Admin only)
+router.route('/:id')
+    .put(authorize('coordinator', 'admin'), updateTask)
+    .delete(authorize('coordinator', 'admin'), deleteTask);
 
 // POST /api/tasks/:id/log-hours -> Perform check-in / check-out logs (Volunteer only)
 router.post('/:id/log-hours', authorize('volunteer'), logTaskHours);

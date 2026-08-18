@@ -65,6 +65,10 @@ const UserSchema = new mongoose.Schema(
             type: String,
             enum: ['pending', 'verified', 'rejected'],
             default: 'pending'
+        },
+        coordinatorRequested: {
+            type: Boolean,
+            default: false
         }
     },
     {
