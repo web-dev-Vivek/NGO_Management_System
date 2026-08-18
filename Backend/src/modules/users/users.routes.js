@@ -7,8 +7,9 @@ import {
     getAllUsers,
     updateUserRole,
     updateUserStatus,
-    requestCoordinator,
-    getCoordinatorRequests
+    createCoordinatorRequest,
+    getCoordinatorRequests,
+    resolveCoordinatorRequest
 } from './users.controller.js';
 
 const router = express.Router();
@@ -19,11 +20,14 @@ router.get('/me', protect, getCurrentUser);
 // PUT /api/users/profile -> Update personal profile details (bio, skills, phone, availability)
 router.put('/profile', protect, updateUserProfile);
 
-// PUT /api/users/request-coordinator -> Volunteer requests promotion to Coordinator
-router.put('/request-coordinator', protect, requestCoordinator);
+// POST /api/users/coordinator-requests -> Volunteer requests campaign coordinator role
+router.post('/coordinator-requests', protect, createCoordinatorRequest);
 
-// GET /api/users/coordinator-requests -> Get all pending coordinator promotions (Admin only)
-router.get('/coordinator-requests', protect, authorize('admin'), getCoordinatorRequests);
+// GET /api/users/coordinator-requests -> Get coordinator requests (Admin: pending, Volunteer: personal requests)
+router.get('/coordinator-requests', protect, getCoordinatorRequests);
+
+// POST /api/users/coordinator-requests/:id/resolve -> Admin resolves coordinator request
+router.post('/coordinator-requests/:id/resolve', protect, authorize('admin'), resolveCoordinatorRequest);
 
 // GET /api/users -> Retrieve all users (Admin & Coordinator access only)
 router.get('/', protect, authorize('admin', 'coordinator'), getAllUsers);

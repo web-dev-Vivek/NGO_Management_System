@@ -211,28 +211,19 @@ const UserDirectory = () => {
 
                   {/* Role */}
                   <td style={{ padding: '16px 24px' }}>
-                    {isAdmin ? (
-                      <select 
-                        value={user.role} 
-                        onChange={(e) => handleRoleChange(user.clerkUserId, e.target.value)}
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid var(--glass-border)',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          color: '#fff',
-                          outline: 'none',
-                          fontSize: '13px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <option value="volunteer" style={{ background: '#0b0f19' }}>Volunteer</option>
-                        <option value="coordinator" style={{ background: '#0b0f19' }}>Coordinator</option>
-                        <option value="admin" style={{ background: '#0b0f19' }}>Admin</option>
-                      </select>
-                    ) : (
-                      <span style={{ fontSize: '13px', textTransform: 'capitalize' }}>{user.role}</span>
-                    )}
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      textTransform: 'capitalize',
+                      background: user.role === 'admin' ? 'rgba(239, 68, 68, 0.1)' : user.role === 'coordinator' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                      color: user.role === 'admin' ? 'var(--color-accent-rose)' : user.role === 'coordinator' ? 'var(--color-accent-blue)' : 'var(--color-accent-emerald)',
+                      border: `1px solid ${user.role === 'admin' ? 'rgba(239, 68, 68, 0.2)' : user.role === 'coordinator' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                    }}>
+                      {user.role}
+                    </span>
                   </td>
 
                   {/* Status Tag */}

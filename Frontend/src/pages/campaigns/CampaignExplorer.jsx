@@ -239,6 +239,32 @@ const CampaignExplorer = () => {
     }
   };
 
+  const handleApproveEnrollment = async (campaignId, volunteerId, action) => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/campaigns/${campaignId}/approve-volunteer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ volunteerId, action })
+      });
+      
+      const result = await response.json();
+      if (response.ok && result.success) {
+        // Refresh campaign details modal data and explorer list
+        setShowDetailModal(result.data);
+        fetchCampaigns();
+      } else {
+        alert(result.message || 'Action failed');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating registration status');
+    }
+  };
+
   const handleRegister = async (campaignId) => {
     try {
       const token = await getToken();
@@ -364,6 +390,8 @@ const CampaignExplorer = () => {
 
   if (!dbUser) return null;
   const isPrivileged = ['admin', 'coordinator'].includes(dbUser.role);
+  const canManageCampaign = dbUser.role === 'admin' || 
+    (dbUser.role === 'coordinator' && showDetailModal && (showDetailModal.createdBy?._id || showDetailModal.createdBy) === dbUser._id);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -818,6 +846,52 @@ const CampaignExplorer = () => {
                 </div>
               )}
 
+              {/* Pending Join Requests Roster for Coordinators/Admins (Enforced by canManageCampaign) */}
+              {canManageCampaign && (
+                <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '20px' }}>
+                  <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Info size={16} style={{ color: 'var(--color-accent-amber)' }} />
+                    Pending Join Requests ({showDetailModal.volunteersRequested?.length || 0})
+                  </h4>
+                  {showDetailModal.volunteersRequested?.length === 0 ? (
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No pending requests for this campaign.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.15)' }}>
+                      {showDetailModal.volunteersRequested?.map((v) => (
+                        <div key={v._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {v.profileImage ? (
+                              <img src={v.profileImage} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                            ) : (
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
+                                {v.firstName?.[0]}
+                              </div>
+                            )}
+                            <span>{v.firstName || v.lastName ? `${v.firstName} ${v.lastName} (${v.email})` : v.email}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button 
+                              className="btn btn-primary" 
+                              style={{ padding: '2px 6px', fontSize: '11px', display: 'flex', alignItems: 'center', background: 'var(--color-accent-emerald)', border: 'none' }}
+                              onClick={() => handleApproveEnrollment(showDetailModal._id, v._id, 'approve')}
+                            >
+                              <Check size={12} /> Approve
+                            </button>
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ padding: '2px 6px', fontSize: '11px', display: 'flex', alignItems: 'center', color: 'var(--color-accent-rose)' }}
+                              onClick={() => handleApproveEnrollment(showDetailModal._id, v._id, 'reject')}
+                            >
+                              <X size={12} /> Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Registered Volunteers Roster list for Coordinators/Admins */}
               {isPrivileged && (
                 <div>
@@ -853,7 +927,7 @@ const CampaignExplorer = () => {
                     <PlusCircle size={16} style={{ color: 'var(--color-accent-blue)' }} />
                     Campaign Tasks ({campaignTasks.length})
                   </h4>
-                  {isPrivileged && !showAddTask && !editingTask && (
+                  {canManageCampaign && !showAddTask && !editingTask && (
                     <button 
                       className="btn btn-primary" 
                       style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -1007,7 +1081,7 @@ const CampaignExplorer = () => {
                         </div>
 
                         {/* Coordinator / Admin controls */}
-                        {isPrivileged && (
+                        {canManageCampaign && (
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.02)', paddingTop: '6px', marginTop: '2px' }}>
                             <button 
                               style={{ background: 'none', border: 'none', color: 'var(--color-accent-blue)', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}

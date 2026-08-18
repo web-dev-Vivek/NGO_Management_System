@@ -51,6 +51,9 @@ const Dashboard = () => {
   const [detailCampaign, setDetailCampaign] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [actionLoading, setActionLoading] = useState(false);
+  const [showCoordinatorModal, setShowCoordinatorModal] = useState(false);
+  const [coordForm, setCoordForm] = useState({ campaignId: '', reason: '' });
+  const [myCoordinatorRequests, setMyCoordinatorRequests] = useState([]);
 
   // Dropdown states for Admin Dashboard
   const [adminDropdowns, setAdminDropdowns] = useState({
@@ -150,6 +153,15 @@ const Dashboard = () => {
         if (taskRes.ok && taskResult.success) {
           setVolunteerTasks(taskResult.data);
         }
+
+        // Fetch Volunteer's coordinator requests history
+        const promoRes = await fetch(`${import.meta.env.VITE_API_URL}/users/coordinator-requests`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const promoResult = await promoRes.json();
+        if (promoRes.ok && promoResult.success) {
+          setMyCoordinatorRequests(promoResult.data);
+        }
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -187,49 +199,64 @@ const Dashboard = () => {
     }
   };
 
-  const handleRequestCoordinator = async () => {
+  const handleRequestCoordinatorCampaign = async (e) => {
+    e.preventDefault();
+    if (!coordForm.campaignId || !coordForm.reason) {
+      alert('Please fill out all fields.');
+      return;
+    }
     try {
       setActionLoading(true);
       const token = await getToken();
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/request-coordinator`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/coordinator-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          campaignId: coordForm.campaignId,
+          reason: coordForm.reason
+        })
       });
       const result = await response.json();
       if (response.ok && result.success) {
-        setMessage({ type: 'success', text: 'Promotion request submitted successfully! Awaiting Admin verification.' });
-        refreshUser(); // Updates dbUser in context
+        setMessage({ type: 'success', text: 'Coordinator application submitted successfully!' });
+        setShowCoordinatorModal(false);
+        setCoordForm({ campaignId: '', reason: '' });
+        fetchDashboardData();
+        refreshUser(); // sync status
       } else {
-        setMessage({ type: 'error', text: result.message || 'Promotion request failed' });
+        setMessage({ type: 'error', text: result.message || 'Application submission failed' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Error submitting promotion request' });
+      setMessage({ type: 'error', text: 'Error submitting coordinator application' });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleApproveCoordinatorPromotion = async (clerkUserId) => {
+  const handleResolveCoordinatorRequest = async (requestId, action) => {
     try {
       setActionLoading(true);
       const token = await getToken();
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${clerkUserId}/role`, {
-        method: 'PUT',
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/coordinator-requests/${requestId}/resolve`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ role: 'coordinator' })
+        body: JSON.stringify({ action })
       });
       const result = await response.json();
       if (response.ok && result.success) {
-        setMessage({ type: 'success', text: 'Volunteer successfully promoted to Coordinator!' });
+        setMessage({ type: 'success', text: `Coordinator request successfully ${action}ed!` });
         fetchDashboardData();
       } else {
-        setMessage({ type: 'error', text: result.message || 'Promotion approval failed' });
+        setMessage({ type: 'error', text: result.message || 'Failed to resolve request' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Error approving coordinator' });
+      setMessage({ type: 'error', text: 'Error resolving request' });
     } finally {
       setActionLoading(false);
     }
@@ -289,35 +316,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleUpdateUserRole = async (clerkUserId, newRole) => {
-    try {
-      setActionLoading(true);
-      const token = await getToken();
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${clerkUserId}/role`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ role: newRole })
-      });
-      const result = await response.json();
-      if (response.ok && result.success) {
-        setMessage({ type: 'success', text: `User role successfully updated to: ${newRole}` });
-        if (selectedRosterUser && selectedRosterUser.clerkUserId === clerkUserId) {
-          setSelectedRosterUser(null);
-        }
-        fetchDashboardData();
-      } else {
-        setMessage({ type: 'error', text: result.message || 'Failed to update user role' });
-      }
-    } catch (err) {
-      console.error(err);
-      setMessage({ type: 'error', text: 'Error updating user role' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+
 
   const handleApproveTaskHours = async (taskId, verifyStatus, approvedHrs) => {
     try {
@@ -458,29 +457,41 @@ const Dashboard = () => {
             {/* Coordinator Request Panel */}
             <div className="glass-card" style={{ border: '1px solid #bae6fd', background: '#f0f9ff' }}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: 'var(--color-accent-blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Users size={18} /> Apply for Coordinator Role
+                <Users size={18} /> Campaign Coordinator Applications
               </h3>
               <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '14px' }}>
-                Coordinators can create campaign drives, assign tasks, and verify volunteer logged hours.
+                Apply to coordinate a specific campaign drive, assign tasks, and verify volunteer hours.
               </p>
-              {dbUser.coordinatorRequested ? (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  fontSize: '12px', 
-                  color: 'var(--color-accent-amber)', 
-                  fontWeight: '600',
-                  background: 'rgba(245, 158, 11, 0.1)', 
-                  padding: '10px', 
-                  borderRadius: '8px'
-                }}>
-                  <Hourglass size={14} /> Promotion Application Pending Admin Review
+              
+              <button 
+                className="btn btn-primary" 
+                style={{ width: '100%', fontSize: '12px', marginBottom: '16px' }} 
+                onClick={() => setShowCoordinatorModal(true)} 
+                disabled={actionLoading}
+              >
+                Apply to Coordinate a Campaign
+              </button>
+
+              {myCoordinatorRequests.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #bae6fd', paddingTop: '12px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--color-text-secondary)' }}>Your Applications:</span>
+                  {myCoordinatorRequests.map(req => (
+                    <div key={req._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+                      <span style={{ fontWeight: '600' }}>{req.campaign?.title || 'Unknown Project'}</span>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        textTransform: 'capitalize',
+                        background: req.status === 'approved' ? 'rgba(16, 185, 129, 0.1)' : req.status === 'rejected' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                        color: req.status === 'approved' ? 'var(--color-accent-emerald)' : req.status === 'rejected' ? 'var(--color-accent-rose)' : 'var(--color-accent-amber)'
+                      }}>
+                        {req.status}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <button className="btn btn-primary" style={{ width: '100%', fontSize: '12px' }} onClick={handleRequestCoordinator} disabled={actionLoading}>
-                  Request Coordinator Role
-                </button>
               )}
             </div>
 
@@ -527,7 +538,7 @@ const Dashboard = () => {
   const renderCoordinator = () => {
     // Find campaign enrollment requests for campaigns created by this coordinator
     const coordinatorCampaigns = campaigns.filter(
-      c => c.createdByRole === 'coordinator' && c.createdBy.toString() === dbUser._id.toString()
+      c => c.createdByRole === 'coordinator' && (c.createdBy?._id?.toString() || c.createdBy?.toString()) === dbUser._id.toString()
     );
 
     return (
@@ -781,21 +792,43 @@ const Dashboard = () => {
               {coordinatorRequests.length === 0 ? (
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', textAlign: 'center' }}>No pending applications.</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {coordinatorRequests.map(reqUser => (
-                    <div key={reqUser._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0f9ff', padding: '10px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                      <div>
-                        <span style={{ fontSize: '12px', fontWeight: '600', display: 'block' }}>{reqUser.firstName} {reqUser.lastName}</span>
-                        <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{reqUser.email}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {coordinatorRequests.map(req => (
+                    <div key={req._id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#f0f9ff', padding: '14px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <span style={{ fontSize: '12px', fontWeight: '700', display: 'block', color: 'var(--color-primary)' }}>
+                            {req.user?.firstName} {req.user?.lastName}
+                          </span>
+                          <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block' }}>
+                            {req.user?.email}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            className="btn btn-primary" 
+                            style={{ padding: '4px 10px', fontSize: '11px', background: 'var(--color-accent-emerald)', border: 'none' }}
+                            onClick={() => handleResolveCoordinatorRequest(req._id, 'approve')}
+                            disabled={actionLoading}
+                          >
+                            Approve
+                          </button>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--color-accent-rose)' }}
+                            onClick={() => handleResolveCoordinatorRequest(req._id, 'reject')}
+                            disabled={actionLoading}
+                          >
+                            Reject
+                          </button>
+                        </div>
                       </div>
-                      <button 
-                        className="btn btn-primary" 
-                        style={{ padding: '4px 8px', fontSize: '11px' }}
-                        onClick={() => handleApproveCoordinatorPromotion(reqUser.clerkUserId)}
-                        disabled={actionLoading}
-                      >
-                        Approve
-                      </button>
+                      <div style={{ fontSize: '12px', borderTop: '1px dashed #bae6fd', paddingTop: '6px', marginTop: '4px', color: '#1e293b' }}>
+                        <div><strong>Campaign:</strong> {req.campaign?.title || 'Unknown Project'}</div>
+                        <div style={{ marginTop: '4px', fontStyle: 'italic', color: '#475569' }}>
+                          <strong>Reason:</strong> "{req.reason}"
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1214,25 +1247,19 @@ const Dashboard = () => {
                   {/* Admin Actions controls */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-secondary)' }}>Modify Role</span>
-                      <select
-                        value={selectedRosterUser.role}
-                        onChange={(e) => handleUpdateUserRole(selectedRosterUser.clerkUserId, e.target.value)}
-                        disabled={actionLoading}
-                        style={{
-                          background: '#fff',
-                          border: '1px solid #cbd5e1',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          outline: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <option value="volunteer">Volunteer</option>
-                        <option value="coordinator">Coordinator</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-text-secondary)' }}>User Role</span>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        textTransform: 'capitalize',
+                        background: selectedRosterUser.role === 'admin' ? 'rgba(239, 68, 68, 0.1)' : selectedRosterUser.role === 'coordinator' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                        color: selectedRosterUser.role === 'admin' ? 'var(--color-accent-rose)' : selectedRosterUser.role === 'coordinator' ? 'var(--color-accent-blue)' : 'var(--color-accent-emerald)',
+                        border: `1px solid ${selectedRosterUser.role === 'admin' ? 'rgba(239, 68, 68, 0.2)' : selectedRosterUser.role === 'coordinator' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                      }}>
+                        {selectedRosterUser.role}
+                      </span>
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
@@ -1347,6 +1374,63 @@ const Dashboard = () => {
               <div><strong>Target Volunteers:</strong> {detailCampaign.targetVolunteers}</div>
             </div>
             <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setDetailCampaign(null)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Coordinator Request Modal */}
+      {showCoordinatorModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 300
+        }}>
+          <div className="glass-card" style={{ maxWidth: '500px', width: '100%', background: '#fff', color: '#1e293b', border: '1px solid #e2e8f0', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--color-primary)' }}>Apply for Campaign Coordinator</h3>
+              <button onClick={() => setShowCoordinatorModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+            </div>
+            
+            <form onSubmit={handleRequestCoordinatorCampaign} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Select Campaign</label>
+                <select
+                  value={coordForm.campaignId}
+                  onChange={(e) => setCoordForm({ ...coordForm, campaignId: e.target.value })}
+                  style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px', borderRadius: '6px', fontSize: '13px', color: '#1e293b', outline: 'none' }}
+                  required
+                >
+                  <option value="">-- Choose Campaign --</option>
+                  {campaigns.filter(c => c.createdByRole === 'admin' && c.status !== 'completed').map(c => (
+                    <option key={c._id} value={c._id}>{c.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Why do you want to coordinate this campaign?</label>
+                <textarea
+                  rows="4"
+                  value={coordForm.reason}
+                  onChange={(e) => setCoordForm({ ...coordForm, reason: e.target.value })}
+                  placeholder="Describe your motivation, experience, or goals for organizing this campaign..."
+                  style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px', borderRadius: '6px', fontSize: '13px', color: '#1e293b', outline: 'none', resize: 'none' }}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowCoordinatorModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={actionLoading}>
+                  Submit Application
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
