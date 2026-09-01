@@ -15,6 +15,16 @@ const CertificatesPage = () => {
   const [issuing, setIssuing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   
+  // Auto-dismiss popup message after 3 seconds
+  useEffect(() => {
+    if (message?.text) {
+      const timer = setTimeout(() => {
+        setMessage({ type: '', text: '' });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+  
   // Issue Certificate Form State
   const [issueForm, setIssueForm] = useState({
     volunteerId: '',
@@ -153,7 +163,7 @@ const CertificatesPage = () => {
                 <select 
                   value={issueForm.volunteerId}
                   onChange={(e) => setIssueForm({ ...issueForm, volunteerId: e.target.value })}
-                  style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   required
                 >
                   <option value="">-- Choose Volunteer --</option>
@@ -168,7 +178,7 @@ const CertificatesPage = () => {
                 <select 
                   value={issueForm.campaignId}
                   onChange={(e) => setIssueForm({ ...issueForm, campaignId: e.target.value })}
-                  style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   required
                 >
                   <option value="">-- Choose Campaign --</option>

@@ -266,6 +266,12 @@ export const registerForCampaign = async (req, res, next) => {
         campaign.volunteersRequested.push(req.user._id);
         await campaign.save();
 
+        await campaign.populate([
+            { path: 'volunteersRegistered', select: 'firstName lastName email profileImage' },
+            { path: 'volunteersRequested', select: 'firstName lastName email profileImage' },
+            { path: 'createdBy', select: 'firstName lastName email profileImage role' }
+        ]);
+
         res.status(200).json({
             success: true,
             message: 'Your registration request has been submitted successfully. Awaiting approval.',
@@ -350,6 +356,12 @@ export const approveVolunteerRegistration = async (req, res, next) => {
         }
 
         await campaign.save();
+
+        await campaign.populate([
+            { path: 'volunteersRegistered', select: 'firstName lastName email profileImage' },
+            { path: 'volunteersRequested', select: 'firstName lastName email profileImage' },
+            { path: 'createdBy', select: 'firstName lastName email profileImage role' }
+        ]);
 
         res.status(200).json({
             success: true,

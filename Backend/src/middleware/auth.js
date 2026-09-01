@@ -56,11 +56,19 @@ export const protect = async (req, res, next) => {
                     console.log(`Auto-created local user database profile for Clerk ID: ${clerkUserId}`);
                 }
             } catch (clerkError) {
-                console.error(`Clerk fetch failed: ${clerkError.message}`);
-                return res.status(500).json({
-                    success: false,
-                    message: `Error synchronizing user session: ${clerkError.message}`
+                console.warn(`Clerk fetch fallback for ID ${clerkUserId}: ${clerkError.message}`);
+                // Graceful fallback profile creation
+                let fallbackEmail = `user_${clerkUserId.slice(-6)}@example.com`;
+                user = await User.create({
+                    clerkUserId,
+                    firstName: 'Volunteer',
+                    lastName: '',
+                    email: fallbackEmail,
+                    role: 'volunteer',
+                    status: 'pending',
+                    verificationStatus: 'pending'
                 });
+                console.log(`Auto-created fallback user database profile for Clerk ID: ${clerkUserId}`);
             }
         }
 

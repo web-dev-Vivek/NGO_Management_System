@@ -19,8 +19,19 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const isUserInList = (list, userId) => {
+  if (!list || !Array.isArray(list) || !userId) return false;
+  const targetId = userId.toString();
+  return list.some(item => {
+    if (!item) return false;
+    if (typeof item === 'string') return item === targetId;
+    if (item._id) return item._id.toString() === targetId;
+    return item.toString() === targetId;
+  });
+};
+
 const Dashboard = () => {
-  const { dbUser, refreshUser } = useDbUser();
+  const { dbUser, loading: userLoading, error: userError, refreshUser } = useDbUser();
   const { getToken } = useAuth();
   
   // Dashboard states
@@ -50,6 +61,16 @@ const Dashboard = () => {
   const [selectedVolunteer, setSelectedVolunteer] = useState(null);
   const [detailCampaign, setDetailCampaign] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Auto-dismiss popup message after 3 seconds
+  useEffect(() => {
+    if (message?.text) {
+      const timer = setTimeout(() => {
+        setMessage({ type: '', text: '' });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
   const [actionLoading, setActionLoading] = useState(false);
   const [showCoordinatorModal, setShowCoordinatorModal] = useState(false);
   const [coordForm, setCoordForm] = useState({ campaignId: '', reason: '' });
@@ -342,10 +363,25 @@ const Dashboard = () => {
     }
   };
 
+  if (userLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '12px' }}>
+        <div style={{ color: 'var(--color-accent-blue)', fontWeight: '600' }}>Synchronizing User Session...</div>
+      </div>
+    );
+  }
+
   if (!dbUser) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <div style={{ color: 'var(--color-text-secondary)', fontWeight: '500' }}>Waiting for database profile sync...</div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '16px', textAlign: 'center', padding: '20px' }}>
+        <AlertCircle size={40} style={{ color: 'var(--color-accent-rose)' }} />
+        <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Profile Synchronization Notice</h3>
+        <p style={{ color: 'var(--color-text-secondary)', maxWidth: '450px', fontSize: '14px' }}>
+          {userError || 'Connecting to database profile. Ensure backend is running on http://localhost:5000.'}
+        </p>
+        <button className="btn btn-primary" onClick={() => refreshUser()} style={{ padding: '8px 20px', marginTop: '8px' }}>
+          Retry Connection
+        </button>
       </div>
     );
   }
@@ -360,9 +396,9 @@ const Dashboard = () => {
 
   // 👤 1. Volunteer Dashboard
   const renderVolunteer = () => {
-    const joinedCampaigns = campaigns.filter(c => c.volunteersRegistered.includes(dbUser._id));
-    const pendingCampaignsList = campaigns.filter(c => c.volunteersRequested.includes(dbUser._id));
-    const notJoinedCampaigns = campaigns.filter(c => c.status === 'active' && !c.volunteersRegistered.includes(dbUser._id) && !c.volunteersRequested.includes(dbUser._id));
+    const joinedCampaigns = campaigns.filter(c => isUserInList(c.volunteersRegistered, dbUser?._id));
+    const pendingCampaignsList = campaigns.filter(c => isUserInList(c.volunteersRequested, dbUser?._id));
+    const notJoinedCampaigns = campaigns.filter(c => c.status === 'active' && !isUserInList(c.volunteersRegistered, dbUser?._id) && !isUserInList(c.volunteersRequested, dbUser?._id));
     
     // Sum hours verified
     const totalVerifiedHours = volunteerTasks
@@ -376,7 +412,7 @@ const Dashboard = () => {
           background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.05) 0%, rgba(22, 163, 74, 0.03) 100%)',
           borderLeft: '4px solid var(--color-accent-blue)'
         }}>
-          <h2 style={{ fontSize: '26px', fontWeight: '800' }}>Welcome, {dbUser.firstName}!</h2>
+          <h2 style={{ fontSize: '26px', fontWeight: '800' }}>Welcome, {dbUser?.firstName}!</h2>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', marginTop: '6px' }}>
             Earn certificates of appreciation by registering for projects, completing assigned tasks, and submitting verified log hours.
           </p>
@@ -397,6 +433,35 @@ const Dashboard = () => {
                 No active projects available right now.
               </div>
             )}
+
+            {/* List joined / enrolled */}
+            {joinedCampaigns.map(camp => (
+              <div key={camp._id} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', padding: '16px 20px', borderColor: 'var(--color-accent-green)' }}>
+                <div>
+                  <h4 style={{ fontSize: '15px', fontWeight: '700' }}>{camp.title}</h4>
+                  <span style={{ 
+                    fontSize: '11px', 
+                    background: 'rgba(22, 163, 74, 0.1)', 
+                    color: 'var(--color-accent-green)', 
+                    padding: '2px 8px', 
+                    borderRadius: '12px',
+                    display: 'inline-block',
+                    marginTop: '4px',
+                    fontWeight: '600'
+                  }}>
+                    Enrolled
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setDetailCampaign(camp)}>
+                    Details
+                  </button>
+                  <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(22, 163, 74, 0.15)', color: 'var(--color-accent-green)', border: '1px solid var(--color-accent-green)', cursor: 'default' }} disabled>
+                    Enrolled
+                  </button>
+                </div>
+              </div>
+            ))}
 
             {/* List not joined */}
             {notJoinedCampaigns.map(camp => (
@@ -445,9 +510,14 @@ const Dashboard = () => {
                     Approval Pending
                   </span>
                 </div>
-                <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setDetailCampaign(camp)}>
-                  Details
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setDetailCampaign(camp)}>
+                    Details
+                  </button>
+                  <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--color-accent-amber)', border: '1px solid var(--color-accent-amber)', cursor: 'default' }} disabled>
+                    Requested
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -807,7 +877,7 @@ const Dashboard = () => {
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button 
                             className="btn btn-primary" 
-                            style={{ padding: '4px 10px', fontSize: '11px', background: 'var(--color-accent-emerald)', border: 'none' }}
+                            style={{ padding: '4px 10px', fontSize: '11px', background: 'var(--color-accent-emerald)', color: '#000000', border: 'none' }}
                             onClick={() => handleResolveCoordinatorRequest(req._id, 'approve')}
                             disabled={actionLoading}
                           >
@@ -1406,7 +1476,7 @@ const Dashboard = () => {
                   required
                 >
                   <option value="">-- Choose Campaign --</option>
-                  {campaigns.filter(c => c.createdByRole === 'admin' && c.status !== 'completed').map(c => (
+                  {campaigns.filter(c => c.status !== 'completed').map(c => (
                     <option key={c._id} value={c._id}>{c.title}</option>
                   ))}
                 </select>

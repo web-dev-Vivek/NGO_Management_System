@@ -17,6 +17,17 @@ import {
   Hourglass 
 } from 'lucide-react';
 
+const isUserInList = (list, userId) => {
+  if (!list || !Array.isArray(list) || !userId) return false;
+  const targetId = userId.toString();
+  return list.some(item => {
+    if (!item) return false;
+    if (typeof item === 'string') return item === targetId;
+    if (item._id) return item._id.toString() === targetId;
+    return item.toString() === targetId;
+  });
+};
+
 const CampaignExplorer = () => {
   const { dbUser } = useDbUser();
   const { getToken } = useAuth();
@@ -59,6 +70,16 @@ const CampaignExplorer = () => {
   
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Auto-dismiss notification popup message after 3 seconds
+  useEffect(() => {
+    if (message?.text) {
+      const timer = setTimeout(() => {
+        setMessage({ type: '', text: '' });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const categories = ["Education", "Health", "Environment", "Disaster Relief", "Community Service", "Other"];
 
@@ -424,14 +445,14 @@ const CampaignExplorer = () => {
 
       {/* Filters Toolbar */}
       <div className="glass-card" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '8px 16px', borderRadius: '8px', flexGrow: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '8px', flexGrow: 1 }}>
           <Search size={18} style={{ color: 'var(--color-text-secondary)' }} />
           <input 
             type="text" 
             placeholder="Search campaigns by keyword or address..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ background: 'none', border: 'none', color: '#fff', outline: 'none', width: '100%', fontSize: '14px' }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-primary)', outline: 'none', width: '100%', fontSize: '14px' }}
           />
         </div>
 
@@ -439,19 +460,19 @@ const CampaignExplorer = () => {
           value={categoryFilter} 
           onChange={(e) => setCategoryFilter(e.target.value)}
           style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--glass-border)',
+            background: '#fff',
+            border: '1px solid #cbd5e1',
             padding: '10px 16px',
             borderRadius: '8px',
-            color: '#fff',
+            color: 'var(--color-text-primary)',
             outline: 'none',
             fontSize: '14px',
             cursor: 'pointer'
           }}
         >
-          <option value="" style={{ background: '#0b0f19' }}>All Categories</option>
+          <option value="">All Categories</option>
           {categories.map(cat => (
-            <option key={cat} value={cat} style={{ background: '#0b0f19' }}>{cat}</option>
+            <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
       </div>
@@ -464,8 +485,8 @@ const CampaignExplorer = () => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
           {campaigns.map((camp) => {
-            const hasJoined = camp.volunteersRegistered.includes(dbUser._id);
-            const hasRequested = camp.volunteersRequested?.includes(dbUser._id);
+            const hasJoined = isUserInList(camp.volunteersRegistered, dbUser?._id);
+            const hasRequested = isUserInList(camp.volunteersRequested, dbUser?._id);
             const spacesTaken = camp.volunteersRegistered.length;
             const progressPercent = Math.min(Math.round((spacesTaken / camp.targetVolunteers) * 100), 100);
 
@@ -609,7 +630,7 @@ const CampaignExplorer = () => {
                   value={newCampaign.title}
                   onChange={(e) => setNewCampaign({...newCampaign, title: e.target.value})}
                   placeholder="E.g. Clean the Beach 2026"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   required
                 />
               </div>
@@ -621,7 +642,7 @@ const CampaignExplorer = () => {
                   onChange={(e) => setNewCampaign({...newCampaign, description: e.target.value})}
                   placeholder="Describe goals, tasks, and volunteer expectations..."
                   rows="3"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
                   required
                 />
               </div>
@@ -632,7 +653,7 @@ const CampaignExplorer = () => {
                   <select 
                     value={newCampaign.category}
                     onChange={(e) => setNewCampaign({...newCampaign, category: e.target.value})}
-                    style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   >
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -645,7 +666,7 @@ const CampaignExplorer = () => {
                     value={newCampaign.targetVolunteers}
                     onChange={(e) => setNewCampaign({...newCampaign, targetVolunteers: parseInt(e.target.value) || 1})}
                     min="1"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                     required
                   />
                 </div>
@@ -658,7 +679,7 @@ const CampaignExplorer = () => {
                   <select 
                     value={newCampaign.createdBy || ''}
                     onChange={(e) => setNewCampaign({...newCampaign, createdBy: e.target.value})}
-                    style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   >
                     <option value="">System Admin (Self)</option>
                     {coordinators.map(c => (
@@ -693,7 +714,7 @@ const CampaignExplorer = () => {
                     type="date" 
                     value={newCampaign.startDate}
                     onChange={(e) => setNewCampaign({...newCampaign, startDate: e.target.value})}
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                     required
                   />
                 </div>
@@ -704,7 +725,7 @@ const CampaignExplorer = () => {
                     type="date" 
                     value={newCampaign.endDate}
                     onChange={(e) => setNewCampaign({...newCampaign, endDate: e.target.value})}
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                     required
                   />
                 </div>
@@ -717,7 +738,7 @@ const CampaignExplorer = () => {
                   value={newCampaign.locationAddress}
                   onChange={(e) => setNewCampaign({...newCampaign, locationAddress: e.target.value})}
                   placeholder="123 Community St, City, Country"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   required
                 />
               </div>
@@ -779,17 +800,17 @@ const CampaignExplorer = () => {
                 </p>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '13px', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '13px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Campaign Schedule</span>
-                  <strong style={{ color: '#fff' }}>
+                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '11px', textTransform: 'uppercase', fontWeight: '600' }}>Campaign Schedule</span>
+                  <strong style={{ color: 'var(--color-text-primary)' }}>
                     {new Date(showDetailModal.startDate).toLocaleDateString()} - {new Date(showDetailModal.endDate).toLocaleDateString()}
                   </strong>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Location Address</span>
-                  <strong style={{ color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '11px', textTransform: 'uppercase', fontWeight: '600' }}>Location Address</span>
+                  <strong style={{ color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {showDetailModal.location.address}
                   </strong>
                 </div>
@@ -797,12 +818,12 @@ const CampaignExplorer = () => {
 
               {/* Organizer details */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Organized by:</span>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Organized by:</span>
                 {dbUser.role === 'admin' ? (
                   <select
                     value={showDetailModal.createdBy?._id || showDetailModal.createdBy || ''}
                     onChange={(e) => handleAssignCampaignOrganizer(showDetailModal._id, e.target.value)}
-                    style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '6px 10px', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '6px 10px', borderRadius: '6px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
                   >
                     <option value="">System Admin (Self)</option>
                     {coordinators.map(c => (
@@ -857,36 +878,44 @@ const CampaignExplorer = () => {
                     <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No pending requests for this campaign.</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.15)' }}>
-                      {showDetailModal.volunteersRequested?.map((v) => (
-                        <div key={v._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {v.profileImage ? (
-                              <img src={v.profileImage} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
-                            ) : (
-                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
-                                {v.firstName?.[0]}
-                              </div>
-                            )}
-                            <span>{v.firstName || v.lastName ? `${v.firstName} ${v.lastName} (${v.email})` : v.email}</span>
+                      {showDetailModal.volunteersRequested?.map((v) => {
+                        const isObj = typeof v === 'object' && v !== null;
+                        const volId = isObj ? v._id : v;
+                        const nameStr = isObj ? (`${v.firstName || ''} ${v.lastName || ''}`.trim() || v.email) : 'Volunteer';
+                        const emailStr = isObj && v.email ? ` (${v.email})` : '';
+                        const firstInitial = isObj && v.firstName ? v.firstName[0] : 'V';
+
+                        return (
+                          <div key={volId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {isObj && v.profileImage ? (
+                                <img src={v.profileImage} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                              ) : (
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>
+                                  {firstInitial}
+                                </div>
+                              )}
+                              <span>{nameStr}{emailStr}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button 
+                                className="btn btn-primary" 
+                                style={{ padding: '2px 6px', fontSize: '11px', display: 'flex', alignItems: 'center', background: 'var(--color-accent-emerald)', color: '#000000', border: 'none' }}
+                                onClick={() => handleApproveEnrollment(showDetailModal._id, volId, 'approve')}
+                              >
+                                <Check size={12} /> Approve
+                              </button>
+                              <button 
+                                className="btn btn-secondary" 
+                                style={{ padding: '2px 6px', fontSize: '11px', display: 'flex', alignItems: 'center', color: 'var(--color-accent-rose)' }}
+                                onClick={() => handleApproveEnrollment(showDetailModal._id, volId, 'reject')}
+                              >
+                                <X size={12} /> Reject
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button 
-                              className="btn btn-primary" 
-                              style={{ padding: '2px 6px', fontSize: '11px', display: 'flex', alignItems: 'center', background: 'var(--color-accent-emerald)', border: 'none' }}
-                              onClick={() => handleApproveEnrollment(showDetailModal._id, v._id, 'approve')}
-                            >
-                              <Check size={12} /> Approve
-                            </button>
-                            <button 
-                              className="btn btn-secondary" 
-                              style={{ padding: '2px 6px', fontSize: '11px', display: 'flex', alignItems: 'center', color: 'var(--color-accent-rose)' }}
-                              onClick={() => handleApproveEnrollment(showDetailModal._id, v._id, 'reject')}
-                            >
-                              <X size={12} /> Reject
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -903,18 +932,25 @@ const CampaignExplorer = () => {
                     <p style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>No volunteers have registered for this campaign yet.</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px' }}>
-                      {showDetailModal.volunteersRegistered?.map((v) => (
-                        <div key={v._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                          {v.profileImage ? (
-                            <img src={v.profileImage} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
-                          ) : (
-                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
-                              {v.firstName?.[0]}
-                            </div>
-                          )}
-                          <span>{v.firstName} {v.lastName} ({v.email})</span>
-                        </div>
-                      ))}
+                      {showDetailModal.volunteersRegistered?.map((v) => {
+                        const isObj = typeof v === 'object' && v !== null;
+                        const nameStr = isObj ? (`${v.firstName || ''} ${v.lastName || ''}`.trim() || v.email) : 'Volunteer';
+                        const emailStr = isObj && v.email ? ` (${v.email})` : '';
+                        const firstInitial = isObj && v.firstName ? v.firstName[0] : 'V';
+
+                        return (
+                          <div key={isObj ? v._id : v} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                            {isObj && v.profileImage ? (
+                              <img src={v.profileImage} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                            ) : (
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>
+                                {firstInitial}
+                              </div>
+                            )}
+                            <span>{nameStr}{emailStr}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -960,7 +996,7 @@ const CampaignExplorer = () => {
                         value={taskForm.title} 
                         onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
                         placeholder="E.g. Setup registration booth"
-                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '8px 12px', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                        style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '6px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
                         required 
                       />
                     </div>
@@ -972,7 +1008,7 @@ const CampaignExplorer = () => {
                         onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
                         placeholder="Detailed instructions for the volunteer..."
                         rows="2"
-                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '8px 12px', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
+                        style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '6px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
                         required 
                       />
                     </div>
@@ -983,15 +1019,22 @@ const CampaignExplorer = () => {
                         <select 
                           value={taskForm.assignedVolunteer} 
                           onChange={(e) => setTaskForm({ ...taskForm, assignedVolunteer: e.target.value })}
-                          style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '8px 10px', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                          style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '8px 10px', borderRadius: '6px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
                           required
                         >
                           <option value="">Select volunteer...</option>
-                          {showDetailModal.volunteersRegistered?.map(v => (
-                            <option key={v._id} value={v._id}>
-                              {v.firstName || v.lastName ? `${v.firstName} ${v.lastName} (${v.email})` : v.email}
-                            </option>
-                          ))}
+                          {showDetailModal.volunteersRegistered?.map(v => {
+                            const isObj = typeof v === 'object' && v !== null;
+                            const volId = isObj ? v._id : v;
+                            const name = isObj ? (`${v.firstName || ''} ${v.lastName || ''}`.trim() || v.email) : v;
+                            const roleTag = isObj && v.role ? ` [${v.role.toUpperCase()}]` : '';
+                            const emailTag = isObj && v.email ? ` - ${v.email}` : '';
+                            return (
+                              <option key={volId} value={volId}>
+                                {name}{roleTag}{emailTag}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
 
@@ -1001,7 +1044,7 @@ const CampaignExplorer = () => {
                           type="date" 
                           value={taskForm.dueDate} 
                           onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
-                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '8px 10px', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                          style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '8px 10px', borderRadius: '6px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
                           required 
                         />
                       </div>
@@ -1013,7 +1056,7 @@ const CampaignExplorer = () => {
                         <select 
                           value={taskForm.priority} 
                           onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-                          style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '8px 10px', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' }}
+                          style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '8px 10px', borderRadius: '6px', color: 'var(--color-text-primary)', fontSize: '12px', outline: 'none' }}
                         >
                           <option value="low">Low</option>
                           <option value="medium">Medium</option>
@@ -1041,10 +1084,10 @@ const CampaignExplorer = () => {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px' }}>
                     {campaignTasks.map((t) => (
-                      <div key={t._id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                      <div key={t._id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
-                            <strong style={{ fontSize: '13px', color: '#fff' }}>{t.title}</strong>
+                            <strong style={{ fontSize: '13px', color: 'var(--color-text-primary)' }}>{t.title}</strong>
                             <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px', lineHeight: '1.4' }}>{t.description}</p>
                           </div>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1065,7 +1108,7 @@ const CampaignExplorer = () => {
                               padding: '2px 6px',
                               borderRadius: '4px',
                               textTransform: 'uppercase',
-                              background: t.status === 'verified' ? 'rgba(16, 185, 129, 0.15)' : t.status === 'completed' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.05)',
+                              background: t.status === 'verified' ? 'rgba(16, 185, 129, 0.15)' : t.status === 'completed' ? 'rgba(99, 102, 241, 0.15)' : '#e2e8f0',
                               color: t.status === 'verified' ? 'var(--color-accent-emerald)' : t.status === 'completed' ? 'var(--color-accent-blue)' : 'var(--color-text-secondary)'
                             }}>
                               {t.status}
@@ -1073,8 +1116,8 @@ const CampaignExplorer = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--color-text-muted)', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '6px', marginTop: '2px' }}>
-                          <span>Assignee: <strong>{t.assignedVolunteer?.firstName} {t.assignedVolunteer?.lastName}</strong></span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--color-text-secondary)', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '2px' }}>
+                          <span>Assignee: <strong style={{ color: 'var(--color-text-primary)' }}>{t.assignedVolunteer?.firstName} {t.assignedVolunteer?.lastName}</strong></span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Calendar size={11} /> Due: {new Date(t.dueDate).toLocaleDateString()}
                           </span>

@@ -13,6 +13,16 @@ const UserDirectory = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  // Auto-dismiss popup message after 3 seconds
+  useEffect(() => {
+    if (message?.text) {
+      const timer = setTimeout(() => {
+        setMessage({ type: '', text: '' });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -122,14 +132,14 @@ const UserDirectory = () => {
 
       {/* Filters & Search Toolbar */}
       <div className="glass-card" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '8px 16px', borderRadius: '8px', flexGrow: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '8px', flexGrow: 1 }}>
           <Search size={18} style={{ color: 'var(--color-text-secondary)' }} />
           <input 
             type="text" 
-            placeholder="Search volunteers by name or email..."
+            placeholder="Search roster users by name, email, or role..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ background: 'none', border: 'none', color: '#fff', outline: 'none', width: '100%', fontSize: '14px' }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-primary)', outline: 'none', width: '100%', fontSize: '14px' }}
           />
         </div>
 
@@ -137,41 +147,41 @@ const UserDirectory = () => {
           value={roleFilter} 
           onChange={(e) => setRoleFilter(e.target.value)}
           style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--glass-border)',
+            background: '#fff',
+            border: '1px solid #cbd5e1',
             padding: '10px 16px',
             borderRadius: '8px',
-            color: '#fff',
+            color: 'var(--color-text-primary)',
             outline: 'none',
             fontSize: '14px',
             cursor: 'pointer'
           }}
         >
-          <option value="" style={{ background: '#0b0f19' }}>All Roles</option>
-          <option value="volunteer" style={{ background: '#0b0f19' }}>Volunteers</option>
-          <option value="coordinator" style={{ background: '#0b0f19' }}>Coordinators</option>
-          <option value="admin" style={{ background: '#0b0f19' }}>Admins</option>
+          <option value="">All Roles</option>
+          <option value="volunteer">Volunteers</option>
+          <option value="coordinator">Coordinators</option>
+          <option value="admin">Admins</option>
         </select>
 
         <select 
           value={statusFilter} 
           onChange={(e) => setStatusFilter(e.target.value)}
           style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--glass-border)',
+            background: '#fff',
+            border: '1px solid #cbd5e1',
             padding: '10px 16px',
             borderRadius: '8px',
-            color: '#fff',
+            color: 'var(--color-text-primary)',
             outline: 'none',
             fontSize: '14px',
             cursor: 'pointer'
           }}
         >
-          <option value="" style={{ background: '#0b0f19' }}>All Statuses</option>
-          <option value="pending" style={{ background: '#0b0f19' }}>Pending Approval</option>
-          <option value="active" style={{ background: '#0b0f19' }}>Active</option>
-          <option value="blocked" style={{ background: '#0b0f19' }}>Blocked</option>
-          <option value="rejected" style={{ background: '#0b0f19' }}>Rejected</option>
+          <option value="">All Statuses</option>
+          <option value="pending">Pending Approval</option>
+          <option value="active">Active</option>
+          <option value="blocked">Blocked</option>
+          <option value="rejected">Rejected</option>
         </select>
       </div>
 

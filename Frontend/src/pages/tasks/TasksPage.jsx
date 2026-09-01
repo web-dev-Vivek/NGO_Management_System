@@ -26,6 +26,16 @@ const TasksPage = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   
+  // Auto-dismiss popup message after 3 seconds
+  useEffect(() => {
+    if (message?.text) {
+      const timer = setTimeout(() => {
+        setMessage({ type: '', text: '' });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+  
   // Assign Task Form State
   const [newTask, setNewTask] = useState({
     title: '',
@@ -406,7 +416,7 @@ const TasksPage = () => {
                 <select 
                   value={newTask.campaignId}
                   onChange={(e) => handleCampaignChange(e.target.value)}
-                  style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   required
                 >
                   <option value="">-- Choose Campaign --</option>
@@ -419,16 +429,23 @@ const TasksPage = () => {
                 <select 
                   value={newTask.assignedVolunteer}
                   onChange={(e) => setNewTask({...newTask, assignedVolunteer: e.target.value})}
-                  style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   disabled={!newTask.campaignId}
                   required
                 >
                   <option value="">-- Choose Registered Volunteer --</option>
-                  {selectedCampaignVolunteers.map(v => (
-                    <option key={v._id} value={v._id}>
-                      {v.firstName || v.lastName ? `${v.firstName} ${v.lastName} (${v.email})` : v.email}
-                    </option>
-                  ))}
+                  {selectedCampaignVolunteers.map(v => {
+                    const isObj = typeof v === 'object' && v !== null;
+                    const volId = isObj ? v._id : v;
+                    const name = isObj ? (`${v.firstName || ''} ${v.lastName || ''}`.trim() || v.email) : v;
+                    const roleTag = isObj && v.role ? ` [${v.role.toUpperCase()}]` : '';
+                    const emailTag = isObj && v.email ? ` - ${v.email}` : '';
+                    return (
+                      <option key={volId} value={volId}>
+                        {name}{roleTag}{emailTag}
+                      </option>
+                    );
+                  })}
                 </select>
                 {!newTask.campaignId && (
                   <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>* Choose a campaign first to load registered volunteers</span>
@@ -442,7 +459,7 @@ const TasksPage = () => {
                   value={newTask.title}
                   onChange={(e) => setNewTask({...newTask, title: e.target.value})}
                   placeholder="E.g. Setup Registration Booth"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   required
                 />
               </div>
@@ -454,7 +471,7 @@ const TasksPage = () => {
                   onChange={(e) => setNewTask({...newTask, description: e.target.value})}
                   placeholder="Detail instructions for the volunteer..."
                   rows="3"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
+                  style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
                   required
                 />
               </div>
@@ -465,7 +482,7 @@ const TasksPage = () => {
                   <select 
                     value={newTask.priority}
                     onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
-                    style={{ background: '#0b0f19', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -479,7 +496,7 @@ const TasksPage = () => {
                     type="date" 
                     value={newTask.dueDate}
                     onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})}
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', color: '#fff', outline: 'none' }}
+                    style={{ background: '#fff', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', color: 'var(--color-text-primary)', outline: 'none' }}
                     required
                   />
                 </div>
